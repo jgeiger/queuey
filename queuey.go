@@ -57,12 +57,12 @@ None
 */
 func (q *Queue) Push(mapKey string, message string) {
 	q.Lock()
-	defer q.Unlock()
 	if _, ok := q.messagePacks[mapKey]; !ok {
 		q.priorityQueue = append(q.priorityQueue, mapKey)
 		q.messagePacks[mapKey] = &MessagePack{Key: mapKey, locked: false}
 	}
 	q.messagePacks[mapKey].Messages = append(q.messagePacks[mapKey].Messages, message)
+	q.Unlock()
 }
 
 /*
@@ -77,12 +77,13 @@ MessagePack
 */
 func (q *Queue) Pop() MessagePack {
 	q.Lock()
-	defer q.Unlock()
 	mapKey := getNextPriority(q)
 	messagePack, err := getNextMessagePack(q, mapKey)
 	if err != nil {
+		q.Unlock()
 		return MessagePack{}
 	}
+	q.Unlock()
 	return *messagePack
 }
 
@@ -99,12 +100,12 @@ None
 */
 func (q *Queue) ClearMessagePackLock(mapKey string) {
 	q.Lock()
-	defer q.Unlock()
 	messagePack := q.messagePacks[mapKey]
 	messagePack.Messages = messagePack.Messages[messagePack.MessageCount:]
 	messagePack.MessageCount = 0
 	messagePack.locked = false
 	q.priorityQueue = append(q.priorityQueue, mapKey)
+	q.Unlock()
 }
 
 func getNextPriority(q *Queue) string {

@@ -111,3 +111,30 @@ func TestClearLock(t *testing.T) {
 		t.Errorf("Expected two queued items, got %v", len(q.priorityQueue))
 	}
 }
+
+func BenchmarkPush(b *testing.B) {
+	// run the Push function b.N times
+	q := New()
+	for n := 0; n < b.N; n++ {
+		q.Push("abcd", "message")
+	}
+}
+
+func BenchmarkPop(b *testing.B) {
+	// run the Pop function b.N times
+	q := New()
+	q.Push("abcd", "message")
+	for n := 0; n < b.N; n++ {
+		_ = q.Pop()
+	}
+}
+
+func BenchmarkClearMessagePackLock(b *testing.B) {
+	// run the ClearMessagePackLock function b.N times
+	q := New()
+	q.Push("abcd", "message")
+	_ = q.Pop()
+	for n := 0; n < b.N; n++ {
+		q.ClearMessagePackLock("abcd")
+	}
+}
