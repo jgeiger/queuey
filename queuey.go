@@ -75,16 +75,15 @@ None
 Outputs:
 MessagePack
 */
-func (q *Queue) Pop() MessagePack {
+func (q *Queue) Pop() (MessagePack, error) {
 	q.Lock()
-	mapKey := getNextPriority(q)
-	messagePack, err := getNextMessagePack(q, mapKey)
+	messagePack, err := getNextMessagePack(q)
 	if err != nil {
 		q.Unlock()
-		return MessagePack{}
+		return MessagePack{}, err
 	}
 	q.Unlock()
-	return *messagePack
+	return *messagePack, nil
 }
 
 /*
@@ -102,9 +101,12 @@ func (q *Queue) ClearMessagePackLock(mapKey string) {
 	q.Lock()
 	messagePack := q.messagePacks[mapKey]
 	messagePack.Messages = messagePack.Messages[messagePack.MessageCount:]
-	messagePack.MessageCount = 0
-	messagePack.locked = false
-	q.priorityQueue = append(q.priorityQueue, mapKey)
+	if len(messagePack.Messages) == 0 {
+		delete(q.messagePacks, mapKey)
+	} else {
+		messagePack.locked = false
+		q.priorityQueue = append(q.priorityQueue, mapKey)
+	}
 	q.Unlock()
 }
 
@@ -122,8 +124,8 @@ func getNextPriority(q *Queue) string {
 	return mapKey
 }
 
-func getNextMessagePack(q *Queue, mapKey string) (*MessagePack, error) {
-	if mapKey != "" {
+func getNextMessagePack(q *Queue) (*MessagePack, error) {
+	if mapKey := getNextPriority(q); mapKey != "" {
 		messagePack := q.messagePacks[mapKey]
 		messagePack.locked = true
 		messagePack.MessageCount = len(messagePack.Messages)

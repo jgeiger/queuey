@@ -84,14 +84,56 @@ func TestPop(t *testing.T) {
 	}
 }
 
-func TestClearLock(t *testing.T) {
+func TestClearLockNoMoreMessages(t *testing.T) {
+	q := NewOrFatalQueue(t)
+	key1 := "one"
+	q.Push(key1, "message")
+	_, _ = q.Pop()
+	q.ClearMessagePackLock(key1)
+
+	if len(q.messagePacks) != 0 {
+		t.Errorf("Expected zero keys, got %v", len(q.messagePacks))
+	}
+
+	if len(q.priorityQueue) != 0 {
+		t.Errorf("Expected zero queued items, got %v", len(q.priorityQueue))
+	}
+}
+
+func TestClearLockMoreItemsSingleQueue(t *testing.T) {
+	q := NewOrFatalQueue(t)
+	key1 := "one"
+	q.Push(key1, "message")
+	q.Push(key1, "message")
+	_, _ = q.Pop()
+	q.Push(key1, "message")
+	q.ClearMessagePackLock(key1)
+
+	if len(q.messagePacks) != 1 {
+		t.Errorf("Expected one key, got %v", len(q.messagePacks))
+	}
+
+	if len(q.messagePacks[key1].Messages) != 1 {
+		t.Errorf("Expected one message, got %v", len(q.messagePacks[key1].Messages))
+	}
+
+	if q.messagePacks[key1].locked != false {
+		t.Errorf("Expected locked to be false, got %v", q.messagePacks[key1].locked)
+	}
+
+	if len(q.priorityQueue) != 1 {
+		t.Errorf("Expected one queued item, got %v", len(q.priorityQueue))
+	}
+}
+
+func TestClearLockMultipleKeys(t *testing.T) {
 	q := NewOrFatalQueue(t)
 	key1 := "one"
 	key2 := "two"
 	q.Push(key1, "message")
 	q.Push(key1, "message")
 	q.Push(key2, "message")
-	_ = q.Pop()
+	_, _ = q.Pop()
 	q.Push(key1, "message")
 	q.ClearMessagePackLock(key1)
 
@@ -123,18 +165,18 @@ func BenchmarkPush(b *testing.B) {
 func BenchmarkPop(b *testing.B) {
 	// run the Pop function b.N times
 	q := New()
-	q.Push("abcd", "message")
 	for n := 0; n < b.N; n++ {
-		_ = q.Pop()
+		q.Push("abcd", "message")
+		_, _ = q.Pop()
 	}
 }
 
 func BenchmarkClearMessagePackLock(b *testing.B) {
 	// run the ClearMessagePackLock function b.N times
 	q := New()
-	q.Push("abcd", "message")
-	_ = q.Pop()
 	for n := 0; n < b.N; n++ {
+		q.Push("abcd", "message")
+		_, _ = q.Pop()
 		q.ClearMessagePackLock("abcd")
 	}
 }
