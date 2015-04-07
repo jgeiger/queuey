@@ -22,7 +22,7 @@ type (
 	MessagePack struct {
 		Key          string
 		Messages     []string
-		MessageCount int
+		MessageCount int64
 		locked       bool
 	}
 )
@@ -128,7 +128,7 @@ func getNextMessagePack(q *Queue) (*MessagePack, error) {
 	if mapKey := getNextPriority(q); mapKey != "" {
 		messagePack := q.messagePacks[mapKey]
 		messagePack.locked = true
-		messagePack.MessageCount = len(messagePack.Messages)
+		messagePack.MessageCount = int64(len(messagePack.Messages))
 		return messagePack, nil
 	}
 	return nil, errors.New("No valid messagePack")
