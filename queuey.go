@@ -15,10 +15,10 @@ type (
 	// Queue contains the priorityQueue and messagePacks map.
 	Queue struct {
 		sync.Mutex
-		priorityQueue      []string
-		messagePacks       map[string]*MessagePack
-		LockedMessagePacks int64
-		StoredMessages     int64
+		priorityQueue  []string
+		messagePacks   map[string]*MessagePack
+		lockedPacks    map[string]int64
+		StoredMessages int64
 	}
 
 	// MessagePack is a container for the messages from the queue.
@@ -26,9 +26,6 @@ type (
 		Key          string
 		Messages     []string
 		MessageCount int64
-		LockedAt     int
-		queue        *Queue
-		unlockTimer  *time.Timer
 	}
 )
 
@@ -43,10 +40,32 @@ Outputs:
 *Queue
 */
 func New() *Queue {
-	return &Queue{
-		messagePacks:       make(map[string]*MessagePack),
-		LockedMessagePacks: 0,
-		StoredMessages:     0,
+	q := &Queue{
+		messagePacks:   make(map[string]*MessagePack),
+		lockedPacks:    make(map[string]int64),
+		StoredMessages: 0,
+	}
+	go q.lockTimer()
+	return q
+}
+
+func (q *Queue) lockTimer() {
+	t := time.NewTicker(15 * time.Second).C
+
+	for {
+		select {
+		case <-t:
+			q.expireLocks()
+		}
+	}
+}
+
+func (q *Queue) expireLocks() {
+	ago := time.Now().UnixNano() - (15 * time.Second).Nanoseconds()
+	for k, v := range q.lockedPacks {
+		if v < ago {
+			delete(q.lockedPacks, k)
+		}
 	}
 }
 
@@ -66,7 +85,7 @@ func (q *Queue) Push(mapKey string, message string) {
 	q.Lock()
 	if _, ok := q.messagePacks[mapKey]; !ok {
 		q.priorityQueue = append(q.priorityQueue, mapKey)
-		q.messagePacks[mapKey] = &MessagePack{Key: mapKey, queue: q}
+		q.messagePacks[mapKey] = &MessagePack{Key: mapKey}
 	}
 	q.messagePacks[mapKey].Messages = append(q.messagePacks[mapKey].Messages, message)
 	q.StoredMessages = q.StoredMessages + 1
@@ -105,15 +124,13 @@ mapKey: string
 Outputs:
 None
 */
-func (q *Queue) ClearLock(mapKey string, locked int) {
+func (q *Queue) ClearLock(mapKey string, locked int64) {
 	q.Lock()
-	mp := q.messagePacks[mapKey]
-	if locked == mp.LockedAt {
-		mp.unlockTimer.Stop()
+	if lockTime, ok := q.lockedPacks[mapKey]; ok && locked == lockTime {
+		mp := q.messagePacks[mapKey]
 		mp.Messages = mp.Messages[mp.MessageCount:]
-		mp.LockedAt = 0
+		delete(q.lockedPacks, mapKey)
 		q.StoredMessages = q.StoredMessages - mp.MessageCount
-		q.LockedMessagePacks = q.LockedMessagePacks - 1
 
 		if len(mp.Messages) == 0 {
 			delete(q.messagePacks, mapKey)
@@ -122,6 +139,19 @@ func (q *Queue) ClearLock(mapKey string, locked int) {
 		}
 	}
 	q.Unlock()
+}
+
+/*
+LockedCount returns the number of locked MessagePacks
+
+Inputs:
+None
+
+Outputs:
+int
+*/
+func (q *Queue) LockedCount() int {
+	return len(q.lockedPacks)
 }
 
 func getNextPriority(q *Queue) string {
@@ -142,17 +172,8 @@ func getNextMessagePack(q *Queue) (*MessagePack, error) {
 	if mapKey := getNextPriority(q); mapKey != "" {
 		mp := q.messagePacks[mapKey]
 		mp.MessageCount = int64(len(mp.Messages))
-		mp.unlockTimer = time.NewTimer(15 * time.Second)
-		mp.LockedAt = time.Now().Nanosecond()
-		q.LockedMessagePacks = q.LockedMessagePacks + 1
-		go mp.timeoutMessagepack()
+		q.lockedPacks[mapKey] = time.Now().UnixNano()
 		return mp, nil
 	}
 	return nil, errors.New("No valid messagePack")
-}
-
-func (mp *MessagePack) timeoutMessagepack() {
-	<-mp.unlockTimer.C
-	mp.MessageCount = 0
-	mp.queue.ClearLock(mp.Key, mp.LockedAt)
 }
