@@ -134,7 +134,8 @@ func TestClearLockNoMoreMessages(t *testing.T) {
 	key1 := "one"
 	q.Push(key1, "message")
 	_, _ = q.Pop()
-	q.ClearLock(key1, q.lockedPacks[key1])
+	p := ClearParams{id: key1, lockedAt: q.lockedPacks[key1], alreadyLocked: false}
+	q.ClearLock(p)
 
 	if q.StoredMessages != 0 {
 		t.Errorf("Expected zero messages, got %v", q.StoredMessages)
@@ -160,7 +161,8 @@ func TestClearLockMoreItemsSingleQueue(t *testing.T) {
 	q.Push(key1, "message")
 	_, _ = q.Pop()
 	q.Push(key1, "message")
-	q.ClearLock(key1, q.lockedPacks[key1])
+	p := ClearParams{id: key1, lockedAt: q.lockedPacks[key1], alreadyLocked: false}
+	q.ClearLock(p)
 
 	if q.StoredMessages != 1 {
 		t.Errorf("Expected one message, got %v", q.StoredMessages)
@@ -194,7 +196,8 @@ func TestClearLockMoreItemsSingleQueueNonMatchingLockedAt(t *testing.T) {
 	q.Push(key1, "message")
 	_, _ = q.Pop()
 	q.Push(key1, "message")
-	q.ClearLock(key1, 1234)
+	p := ClearParams{id: key1, lockedAt: 1234, alreadyLocked: false}
+	q.ClearLock(p)
 
 	if q.StoredMessages != 3 {
 		t.Errorf("Expected three messages, got %v", q.StoredMessages)
@@ -230,7 +233,8 @@ func TestClearLockMultipleKeys(t *testing.T) {
 	q.Push(key2, "message")
 	_, _ = q.Pop()
 	q.Push(key1, "message")
-	q.ClearLock(key1, q.lockedPacks[key1])
+	p := ClearParams{id: key1, lockedAt: q.lockedPacks[key1], alreadyLocked: false}
+	q.ClearLock(p)
 
 	if q.StoredMessages != 2 {
 		t.Errorf("Expected one message, got %v", q.StoredMessages)
@@ -277,20 +281,24 @@ func BenchmarkPop(b *testing.B) {
 func BenchmarkClearLockMatchingLock(b *testing.B) {
 	// run the ClearLock function b.N times
 	q := New()
+	key1 := "abcd"
 	for n := 0; n < b.N; n++ {
 		q.Push("abcd", "message")
 		_, _ = q.Pop()
-		q.ClearLock("abcd", q.lockedPacks["abcd"])
+		p := ClearParams{id: key1, lockedAt: q.lockedPacks[key1], alreadyLocked: false}
+		q.ClearLock(p)
 	}
 }
 
 func BenchmarkClearLockNonMatchingLock(b *testing.B) {
 	// run the ClearLock function b.N times
 	q := New()
+	key1 := "abcd"
 	for n := 0; n < b.N; n++ {
 		q.Push("abcd", "message")
 		_, _ = q.Pop()
-		q.ClearLock("abcd", 1234)
+		p := ClearParams{id: key1, lockedAt: 1234, alreadyLocked: false}
+		q.ClearLock(p)
 	}
 }
 

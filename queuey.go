@@ -28,6 +28,13 @@ type (
 		MessageCount int64
 		LockedAt     int64
 	}
+
+	// ClearParams contains the values passed to ClearLock
+	ClearParams struct {
+		id            string
+		lockedAt      int64
+		alreadyLocked bool
+	}
 )
 
 /*
@@ -65,7 +72,11 @@ func (q *Queue) expireLocks() {
 	ago := time.Now().UnixNano() - (15 * time.Second).Nanoseconds()
 	for k, v := range q.lockedPacks {
 		if v < ago {
+			q.Lock()
+			q.messagePacks[k].MessageCount = 0
+			q.ClearLock(ClearParams{id: k, lockedAt: v, alreadyLocked: true})
 			delete(q.lockedPacks, k)
+			q.Unlock()
 		}
 	}
 }
@@ -125,22 +136,26 @@ mapKey: string
 Outputs:
 None
 */
-func (q *Queue) ClearLock(mapKey string, locked int64) {
-	q.Lock()
-	if lockTime, ok := q.lockedPacks[mapKey]; ok && locked == lockTime {
-		mp := q.messagePacks[mapKey]
+func (q *Queue) ClearLock(p ClearParams) {
+	if !p.alreadyLocked {
+		q.Lock()
+	}
+	if lockTime, ok := q.lockedPacks[p.id]; ok && p.lockedAt == lockTime {
+		mp := q.messagePacks[p.id]
 		mp.Messages = mp.Messages[mp.MessageCount:]
-		delete(q.lockedPacks, mapKey)
+		delete(q.lockedPacks, p.id)
 		mp.LockedAt = 0
 		q.StoredMessages = q.StoredMessages - mp.MessageCount
 
 		if len(mp.Messages) == 0 {
-			delete(q.messagePacks, mapKey)
+			delete(q.messagePacks, p.id)
 		} else {
-			q.priorityQueue = append(q.priorityQueue, mapKey)
+			q.priorityQueue = append(q.priorityQueue, p.id)
 		}
 	}
-	q.Unlock()
+	if !p.alreadyLocked {
+		q.Unlock()
+	}
 }
 
 /*
