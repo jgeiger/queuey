@@ -46,11 +46,11 @@ func New() *Queue {
 		lockedPacks:    make(map[string]int64),
 		StoredMessages: 0,
 	}
-	go q.lockTimer()
+	go q.lockTicker()
 	return q
 }
 
-func (q *Queue) lockTimer() {
+func (q *Queue) lockTicker() {
 	t := time.NewTicker(15 * time.Second).C
 
 	for {
