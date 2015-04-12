@@ -26,6 +26,7 @@ type (
 		Key          string
 		Messages     []string
 		MessageCount int64
+		LockedAt     int64
 	}
 )
 
@@ -130,6 +131,7 @@ func (q *Queue) ClearLock(mapKey string, locked int64) {
 		mp := q.messagePacks[mapKey]
 		mp.Messages = mp.Messages[mp.MessageCount:]
 		delete(q.lockedPacks, mapKey)
+		mp.LockedAt = 0
 		q.StoredMessages = q.StoredMessages - mp.MessageCount
 
 		if len(mp.Messages) == 0 {
@@ -172,7 +174,9 @@ func getNextMessagePack(q *Queue) (*MessagePack, error) {
 	if mapKey := getNextPriority(q); mapKey != "" {
 		mp := q.messagePacks[mapKey]
 		mp.MessageCount = int64(len(mp.Messages))
-		q.lockedPacks[mapKey] = time.Now().UnixNano()
+		now := time.Now().UnixNano()
+		mp.LockedAt = now
+		q.lockedPacks[mapKey] = now
 		return mp, nil
 	}
 	return nil, errors.New("No valid messagePack")
