@@ -134,7 +134,7 @@ func TestClearLockNoMoreMessages(t *testing.T) {
 	key1 := "one"
 	q.Push(key1, "message")
 	_, _ = q.Pop()
-	p := ClearParams{id: key1, lockedAt: q.lockedPacks[key1], alreadyLocked: false}
+	p := ClearParams{ID: key1, LockedAt: q.lockedPacks[key1], AlreadyLocked: false}
 	q.ClearLock(p)
 
 	if q.StoredMessages != 0 {
@@ -161,7 +161,7 @@ func TestClearLockMoreItemsSingleQueue(t *testing.T) {
 	q.Push(key1, "message")
 	_, _ = q.Pop()
 	q.Push(key1, "message")
-	p := ClearParams{id: key1, lockedAt: q.lockedPacks[key1], alreadyLocked: false}
+	p := ClearParams{ID: key1, LockedAt: q.lockedPacks[key1], AlreadyLocked: false}
 	q.ClearLock(p)
 
 	if q.StoredMessages != 1 {
@@ -196,7 +196,7 @@ func TestClearLockMoreItemsSingleQueueNonMatchingLockedAt(t *testing.T) {
 	q.Push(key1, "message")
 	_, _ = q.Pop()
 	q.Push(key1, "message")
-	p := ClearParams{id: key1, lockedAt: 1234, alreadyLocked: false}
+	p := ClearParams{ID: key1, LockedAt: 1234, AlreadyLocked: false}
 	q.ClearLock(p)
 
 	if q.StoredMessages != 3 {
@@ -233,7 +233,7 @@ func TestClearLockMultipleKeys(t *testing.T) {
 	q.Push(key2, "message")
 	_, _ = q.Pop()
 	q.Push(key1, "message")
-	p := ClearParams{id: key1, lockedAt: q.lockedPacks[key1], alreadyLocked: false}
+	p := ClearParams{ID: key1, LockedAt: q.lockedPacks[key1], AlreadyLocked: false}
 	q.ClearLock(p)
 
 	if q.StoredMessages != 2 {
@@ -285,7 +285,7 @@ func BenchmarkClearLockMatchingLock(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		q.Push("abcd", "message")
 		_, _ = q.Pop()
-		p := ClearParams{id: key1, lockedAt: q.lockedPacks[key1], alreadyLocked: false}
+		p := ClearParams{ID: key1, LockedAt: q.lockedPacks[key1], AlreadyLocked: false}
 		q.ClearLock(p)
 	}
 }
@@ -297,7 +297,7 @@ func BenchmarkClearLockNonMatchingLock(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		q.Push("abcd", "message")
 		_, _ = q.Pop()
-		p := ClearParams{id: key1, lockedAt: 1234, alreadyLocked: false}
+		p := ClearParams{ID: key1, LockedAt: 1234, AlreadyLocked: false}
 		q.ClearLock(p)
 	}
 }
