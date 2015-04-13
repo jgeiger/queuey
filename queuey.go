@@ -61,10 +61,8 @@ func (q *Queue) lockTicker() {
 	t := time.NewTicker(15 * time.Second).C
 
 	for {
-		select {
-		case <-t:
-			q.expireLocks()
-		}
+		<-t
+		q.expireLocks()
 	}
 }
 
