@@ -2,6 +2,9 @@ package queuey
 
 import "testing"
 
+const key1 = "one"
+const key2 = "two"
+
 func NewOrFatalQueue(t *testing.T) *Queue {
 	q := New()
 	return q
@@ -16,8 +19,8 @@ func TestNewQueue(t *testing.T) {
 
 func TestExpireLocksBeforeTimeout(t *testing.T) {
 	q := NewOrFatalQueue(t)
-	key1 := "one"
-	q.Push(key1, "message")
+	m := []byte("message")
+	q.Push(key1, m)
 	q.Pop()
 
 	q.expireLocks()
@@ -29,8 +32,8 @@ func TestExpireLocksBeforeTimeout(t *testing.T) {
 
 func TestExpireLocksAfterTimeout(t *testing.T) {
 	q := NewOrFatalQueue(t)
-	key1 := "one"
-	q.Push(key1, "message")
+	m := []byte("message")
+	q.Push(key1, m)
 	q.Pop()
 	q.lockedPacks[key1] = 1
 
@@ -43,9 +46,8 @@ func TestExpireLocksAfterTimeout(t *testing.T) {
 
 func TestPush(t *testing.T) {
 	q := NewOrFatalQueue(t)
-	key1 := "one"
-	key2 := "two"
-	q.Push(key1, "message")
+	m := []byte("message")
+	q.Push(key1, m)
 
 	if q.StoredMessages != 1 {
 		t.Errorf("Expected one message, got %v", q.StoredMessages)
@@ -67,7 +69,7 @@ func TestPush(t *testing.T) {
 		t.Errorf("Expected one queued item, got %v", len(q.priorityQueue))
 	}
 
-	q.Push(key1, "message")
+	q.Push(key1, m)
 	if len(q.messagePacks) != 1 {
 		t.Errorf("Expected one key, got %v", len(q.messagePacks))
 	}
@@ -80,7 +82,7 @@ func TestPush(t *testing.T) {
 		t.Errorf("Expected one queued item, got %v", len(q.priorityQueue))
 	}
 
-	q.Push(key2, "message")
+	q.Push(key2, m)
 	if len(q.messagePacks) != 2 {
 		t.Errorf("Expected two keys, got %v", len(q.messagePacks))
 	}
@@ -96,11 +98,10 @@ func TestPush(t *testing.T) {
 
 func TestPop(t *testing.T) {
 	q := NewOrFatalQueue(t)
-	key1 := "one"
-	key2 := "two"
-	q.Push(key1, "message")
-	q.Push(key1, "message")
-	q.Push(key2, "message")
+	m := []byte("message")
+	q.Push(key1, m)
+	q.Push(key1, m)
+	q.Push(key2, m)
 
 	q.Pop()
 
@@ -131,8 +132,8 @@ func TestPop(t *testing.T) {
 
 func TestClearLockNoMoreMessages(t *testing.T) {
 	q := NewOrFatalQueue(t)
-	key1 := "one"
-	q.Push(key1, "message")
+	m := []byte("message")
+	q.Push(key1, m)
 	_, _ = q.Pop()
 	p := ClearParams{ID: key1, LockedAt: q.lockedPacks[key1], AlreadyLocked: false}
 	q.ClearLock(p)
@@ -156,11 +157,11 @@ func TestClearLockNoMoreMessages(t *testing.T) {
 
 func TestClearLockMoreItemsSingleQueue(t *testing.T) {
 	q := NewOrFatalQueue(t)
-	key1 := "one"
-	q.Push(key1, "message")
-	q.Push(key1, "message")
+	m := []byte("message")
+	q.Push(key1, m)
+	q.Push(key1, m)
 	_, _ = q.Pop()
-	q.Push(key1, "message")
+	q.Push(key1, m)
 	p := ClearParams{ID: key1, LockedAt: q.lockedPacks[key1], AlreadyLocked: false}
 	q.ClearLock(p)
 
@@ -191,11 +192,11 @@ func TestClearLockMoreItemsSingleQueue(t *testing.T) {
 
 func TestClearLockMoreItemsSingleQueueNonMatchingLockedAt(t *testing.T) {
 	q := NewOrFatalQueue(t)
-	key1 := "one"
-	q.Push(key1, "message")
-	q.Push(key1, "message")
+	m := []byte("message")
+	q.Push(key1, m)
+	q.Push(key1, m)
 	_, _ = q.Pop()
-	q.Push(key1, "message")
+	q.Push(key1, m)
 	p := ClearParams{ID: key1, LockedAt: 1234, AlreadyLocked: false}
 	q.ClearLock(p)
 
@@ -226,13 +227,12 @@ func TestClearLockMoreItemsSingleQueueNonMatchingLockedAt(t *testing.T) {
 
 func TestClearLockMultipleKeys(t *testing.T) {
 	q := NewOrFatalQueue(t)
-	key1 := "one"
-	key2 := "two"
-	q.Push(key1, "message")
-	q.Push(key1, "message")
-	q.Push(key2, "message")
+	m := []byte("message")
+	q.Push(key1, m)
+	q.Push(key1, m)
+	q.Push(key2, m)
 	_, _ = q.Pop()
-	q.Push(key1, "message")
+	q.Push(key1, m)
 	p := ClearParams{ID: key1, LockedAt: q.lockedPacks[key1], AlreadyLocked: false}
 	q.ClearLock(p)
 
@@ -264,16 +264,18 @@ func TestClearLockMultipleKeys(t *testing.T) {
 func BenchmarkPush(b *testing.B) {
 	// run the Push function b.N times
 	q := New()
+	m := []byte("message")
 	for n := 0; n < b.N; n++ {
-		q.Push("abcd", "message")
+		q.Push(key1, m)
 	}
 }
 
 func BenchmarkPop(b *testing.B) {
 	// run the Pop function b.N times
 	q := New()
+	m := []byte("message")
 	for n := 0; n < b.N; n++ {
-		q.Push("abcd", "message")
+		q.Push(key1, m)
 		_, _ = q.Pop()
 	}
 }
@@ -281,9 +283,9 @@ func BenchmarkPop(b *testing.B) {
 func BenchmarkClearLockMatchingLock(b *testing.B) {
 	// run the ClearLock function b.N times
 	q := New()
-	key1 := "abcd"
+	m := []byte("message")
 	for n := 0; n < b.N; n++ {
-		q.Push("abcd", "message")
+		q.Push(key1, m)
 		_, _ = q.Pop()
 		p := ClearParams{ID: key1, LockedAt: q.lockedPacks[key1], AlreadyLocked: false}
 		q.ClearLock(p)
@@ -293,9 +295,9 @@ func BenchmarkClearLockMatchingLock(b *testing.B) {
 func BenchmarkClearLockNonMatchingLock(b *testing.B) {
 	// run the ClearLock function b.N times
 	q := New()
-	key1 := "abcd"
+	m := []byte("message")
 	for n := 0; n < b.N; n++ {
-		q.Push("abcd", "message")
+		q.Push(key1, m)
 		_, _ = q.Pop()
 		p := ClearParams{ID: key1, LockedAt: 1234, AlreadyLocked: false}
 		q.ClearLock(p)
@@ -305,7 +307,8 @@ func BenchmarkClearLockNonMatchingLock(b *testing.B) {
 func BenchmarkLockedCount(b *testing.B) {
 	// run the ClearLock function b.N times
 	q := New()
-	q.Push("abcd", "message")
+	m := []byte("message")
+	q.Push(key1, m)
 	_, _ = q.Pop()
 	for n := 0; n < b.N; n++ {
 		q.LockedCount()

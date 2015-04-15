@@ -24,7 +24,7 @@ type (
 	// MessagePack is a container for the messages from the queue.
 	MessagePack struct {
 		Key          string
-		Messages     []string
+		Messages     [][]byte
 		MessageCount int64
 		LockedAt     int64
 	}
@@ -91,13 +91,13 @@ message: string
 Outputs:
 None
 */
-func (q *Queue) Push(mapKey string, message string) {
+func (q *Queue) Push(k string, m []byte) {
 	q.Lock()
-	if _, ok := q.messagePacks[mapKey]; !ok {
-		q.priorityQueue = append(q.priorityQueue, mapKey)
-		q.messagePacks[mapKey] = &MessagePack{Key: mapKey}
+	if _, ok := q.messagePacks[k]; !ok {
+		q.priorityQueue = append(q.priorityQueue, k)
+		q.messagePacks[k] = &MessagePack{Key: k}
 	}
-	q.messagePacks[mapKey].Messages = append(q.messagePacks[mapKey].Messages, message)
+	q.messagePacks[k].Messages = append(q.messagePacks[k].Messages, m)
 	q.StoredMessages = q.StoredMessages + 1
 	q.Unlock()
 }
@@ -114,7 +114,7 @@ MessagePack
 */
 func (q *Queue) Pop() (MessagePack, error) {
 	q.Lock()
-	mp, err := getNextMessagePack(q)
+	mp, err := q.getNextMessagePack()
 	if err != nil {
 		q.Unlock()
 		return MessagePack{}, err
@@ -169,7 +169,7 @@ func (q *Queue) LockedCount() int {
 	return len(q.lockedPacks)
 }
 
-func getNextPriority(q *Queue) string {
+func (q *Queue) getNextPriority() string {
 	switch len(q.priorityQueue) {
 	case 0:
 		return ""
@@ -183,8 +183,8 @@ func getNextPriority(q *Queue) string {
 	return mapKey
 }
 
-func getNextMessagePack(q *Queue) (*MessagePack, error) {
-	if mapKey := getNextPriority(q); mapKey != "" {
+func (q *Queue) getNextMessagePack() (*MessagePack, error) {
+	if mapKey := q.getNextPriority(); mapKey != "" {
 		mp := q.messagePacks[mapKey]
 		mp.MessageCount = int64(len(mp.Messages))
 		now := time.Now().UnixNano()
