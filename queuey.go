@@ -86,7 +86,7 @@ of the priorityQueue if it does not already exist.
 
 Inputs:
 mapKey: string
-message: string
+message: []byte
 
 Outputs:
 None
