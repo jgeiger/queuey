@@ -1,6 +1,6 @@
 /*
 Package queuey provides queue that processes based on
-FIFO and locks the queue from futher reads until manually
+FIFO and locks the queue from further reads until manually
 unlocked.
 */
 package queuey
